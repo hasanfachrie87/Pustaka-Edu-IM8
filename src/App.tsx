@@ -164,7 +164,12 @@ export default function App() {
   // Supabase Synchronization State
   const [isSyncing, setIsSyncing] = useState(false);
   const [supabaseConnected, setSupabaseConnected] = useState<boolean | null>(null);
-  const [syncMessage, setSyncMessage] = useState<string>('Data tersimpan & disinkronkan dengan klien Supabase');
+  const [tableStatus, setTableStatus] = useState<{
+    books: boolean | null;
+    members: boolean | null;
+    loans: boolean | null;
+  }>({ books: null, members: null, loans: null });
+  const [syncMessage, setSyncMessage] = useState<string>('Klien Supabase siap terhubung ke psgijbjlkmxivkngxljb.supabase.co');
   const [copiedSql, setCopiedSql] = useState(false);
 
   // Filters & Search
@@ -268,27 +273,41 @@ export default function App() {
     setIsSyncing(true);
     try {
       const [booksRes, membersRes, loansRes] = await Promise.all([
-        supabase.from('books').select('*').order('created_at', { ascending: false }),
-        supabase.from('members').select('*').order('created_at', { ascending: false }),
-        supabase.from('loans').select('*').order('created_at', { ascending: false }),
+        supabase.from('books').select('*'),
+        supabase.from('members').select('*'),
+        supabase.from('loans').select('*'),
       ]);
 
-      if (booksRes.error || membersRes.error || loansRes.error) {
-        setSupabaseConnected(false);
-        setSyncMessage(
-          'Klien Supabase aktif. Menggunakan penyimpanan lokal (tabel belum diinisialisasi di Supabase atau mode offline).'
-        );
-        if (!silent) {
-          showToast('Menggunakan data lokal. Buka tab Skema Supabase jika ingin membuat tabel di cloud.', 'warning');
-        }
-      } else {
+      const booksOk = !booksRes.error;
+      const membersOk = !membersRes.error;
+      const loansOk = !loansRes.error;
+
+      setTableStatus({
+        books: booksOk,
+        members: membersOk,
+        loans: loansOk,
+      });
+
+      if (booksOk && membersOk && loansOk) {
         setSupabaseConnected(true);
         if (booksRes.data && booksRes.data.length > 0) setBooks(booksRes.data);
         if (membersRes.data && membersRes.data.length > 0) setMembers(membersRes.data);
         if (loansRes.data && loansRes.data.length > 0) setLoans(loansRes.data);
-        setSyncMessage('Terhubung langsung ke tabel cloud Supabase (psgijbjlkmxivkngxljb)');
+        setSyncMessage('Terhubung langsung ke tabel Cloud Supabase (psgijbjlkmxivkngxljb). Data tersinkron.');
         if (!silent) {
           showToast('Data berhasil disinkronkan dari Supabase Cloud!', 'success');
+        }
+      } else {
+        setSupabaseConnected(false);
+        const missing = [];
+        if (!booksOk) missing.push('books');
+        if (!membersOk) missing.push('members');
+        if (!loansOk) missing.push('loans');
+        setSyncMessage(
+          `Klien Supabase aktif. Tabel (${missing.join(', ')}) belum dibuat di Supabase SQL Editor. Silakan jalankan Skrip SQL di tab Database Supabase.`
+        );
+        if (!silent) {
+          showToast(`Tabel ${missing.join(', ')} belum dibuat di Supabase. Buka tab Database Supabase untuk membuat tabel.`, 'warning');
         }
       }
     } catch {
@@ -313,12 +332,15 @@ export default function App() {
 
       if (errB || errM || errL) {
         setSupabaseConnected(false);
+        const errDetail = errB?.message || errM?.message || errL?.message || '';
         showToast(
-          'Pastikan tabel books, members, dan loans sudah dibuat di SQL Editor Supabase Anda.',
+          `Gagal: ${errDetail || 'Pastikan tabel books, members, dan loans sudah dibuat di Supabase SQL Editor.'}`,
           'warning'
         );
       } else {
         setSupabaseConnected(true);
+        setTableStatus({ books: true, members: true, loans: true });
+        setSyncMessage('Semua data lokal berhasil diunggah dan tersinkron ke tabel Supabase Cloud.');
         showToast('Seluruh data buku, anggota, dan transaksi berhasil diunggah ke Supabase!', 'success');
       }
     } catch {
@@ -1015,7 +1037,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-sky-100 flex flex-col justify-center items-center p-4">
         <div className="w-full max-w-md bg-white border border-sky-200 rounded-2xl p-8 shadow-sm">
-          {/* Header Brand: Green School Logo + Green PustakaEdu Title */}
+          {/* Header Brand: Green School Logo + Green Pustaka Insan Madani 8 Title */}
           <div className="flex items-center gap-3.5 mb-6 pb-5 border-b border-slate-100">
             <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
               {!loginLogoError ? (
@@ -1032,7 +1054,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-2xl font-display font-bold text-emerald-700 tracking-tight leading-none">
-                PustakaEdu
+                Pustaka Insan Madani 8
               </h1>
               <p className="text-xs font-semibold text-emerald-600 mt-1">
                 {adminConfig.namaSekolah}
@@ -1197,7 +1219,7 @@ export default function App() {
               type="submit"
               className="w-full py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
             >
-              Masuk ke PustakaEdu
+              Masuk ke Pustaka Insan Madani 8
             </button>
           </form>
         </div>
@@ -1224,7 +1246,7 @@ export default function App() {
           </div>
         )}
         <HomeDashboard
-          appName="PustakaEdu"
+          appName="Pustaka Insan Madani 8"
           schoolName={adminConfig.namaSekolah}
           books={books}
           members={members}
@@ -1270,7 +1292,7 @@ export default function App() {
             alt="Logo SMP IT Insan Madani 8"
             className="w-9 h-9 object-contain shrink-0"
           />
-          <span>PustakaEdu</span>
+          <span>Pustaka Insan Madani 8</span>
         </a>
 
         {/* Zone 2: 4-5 Concise Single-Line Nav Links */}
@@ -1380,51 +1402,25 @@ export default function App() {
               {adminConfig.namaSekolah}
             </span>
             <span aria-hidden="true">·</span>
-            {session.role === 'admin' ? (
-              <span>
-                {adminConfig.kepalaNama} (NIP: <span className="font-mono">{adminConfig.kepalaNip}</span>)
-              </span>
-            ) : (
-              <span>
-                {activeStudent?.nama} ({activeStudent?.nomor_induk} / {activeStudent?.kelas_unit})
-              </span>
-            )}
+            <span>
+              {adminConfig.kepalaNama} (NIP: <span className="font-mono">{adminConfig.kepalaNip}</span>)
+            </span>
             <span aria-hidden="true">·</span>
             <span className="font-mono text-slate-500">
               Tarif Denda: {formatRupiah(adminConfig.finePerDay)}/hari
             </span>
           </div>
 
-          {/* Interactive Role Switcher, Date Simulation & Admin Settings Controls */}
+          {/* Interactive Date Simulation & Admin Settings Controls */}
           <div className="flex flex-wrap items-center gap-3">
-            {session.role === 'admin' && (
-              <button
-                type="button"
-                onClick={openAdminSettingsModal}
-                className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
-              >
-                <Settings className="w-3.5 h-3.5 text-slate-600" />
-                Pengaturan Kepala Perpustakaan / Admin
-              </button>
-            )}
-            {session.role === 'siswa' && (
-              <div className="flex items-center gap-1.5 text-xs">
-                <label className="text-slate-500 whitespace-nowrap">Simulasi Anggota:</label>
-                <select
-                  value={activeStudent?.id || ''}
-                  onChange={(e) =>
-                    setSession({ role: 'siswa', studentMemberId: e.target.value })
-                  }
-                  className="px-2.5 py-1 text-xs border border-slate-200 rounded-md bg-slate-50 text-slate-800 font-medium"
-                >
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nama} ({m.kelas_unit})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={openAdminSettingsModal}
+              className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <Settings className="w-3.5 h-3.5 text-slate-600" />
+              Pengaturan Kepala Perpustakaan / Admin
+            </button>
 
             <div className="flex items-center gap-1.5 text-xs">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -2127,24 +2123,24 @@ export default function App() {
                       Integrasi Cloud Supabase
                     </h1>
                     <p className="text-sm text-slate-600 mt-1">
-                      Koneksi langsung ke project Supabase Anda beserta skrip SQL pembuatan tabel otomatis.
+                      Koneksi real-time ke database PostgreSQL Supabase Anda (<span className="font-mono text-emerald-700 font-semibold">psgijbjlkmxivkngxljb</span>).
                     </p>
                   </div>
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex flex-wrap items-center gap-2.5">
                     <button
                       type="button"
                       onClick={() => syncFromSupabase(false)}
                       disabled={isSyncing}
-                      className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                      className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                      Tarik Data dari Supabase
+                      Tarik & Uji Status Tabel
                     </button>
                     <button
                       type="button"
                       onClick={pushAllToSupabase}
                       disabled={isSyncing}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
                     >
                       <Upload className="w-3.5 h-3.5" />
                       Unggah Data Lokal ke Supabase
@@ -2152,49 +2148,160 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                      <p className="text-xs text-slate-500 mb-1">Endpoint API URL Supabase</p>
-                      <p className="font-mono text-xs font-semibold text-slate-900 break-all">
+                {/* Connection Status Grid */}
+                <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                      <p className="text-xs text-slate-500 mb-1">API URL Supabase</p>
+                      <p className="font-mono text-xs font-bold text-slate-900 break-all">
                         {SUPABASE_URL}
                       </p>
+                      <p className="text-[11px] text-slate-500 mt-1">Project ID: psgijbjlkmxivkngxljb</p>
                     </div>
-                    <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                      <p className="text-xs text-slate-500 mb-1">Status Sinkronisasi</p>
+
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                      <p className="text-xs text-slate-500 mb-1">Kunci Akses (Anon Key)</p>
+                      <p className="font-mono text-xs font-semibold text-emerald-700 truncate">
+                        eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">Role: public anon (Client-side)</p>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                      <p className="text-xs text-slate-500 mb-1">Status Sinkronisasi Real-time</p>
                       <p className="text-xs font-semibold text-slate-900">{syncMessage}</p>
                     </div>
                   </div>
 
+                  {/* Individual Table Status Indicators */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        Skema Tabel PostgreSQL Supabase (books, members, loans)
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
-                          setCopiedSql(true);
-                          setTimeout(() => setCopiedSql(false), 2500);
-                          showToast('Skrip SQL berhasil disalin ke clipboard!');
-                        }}
-                        className="px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        {copiedSql ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            Tersalin
-                          </>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
+                      Status Tabel Database di Supabase
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">Tabel books</p>
+                          <p className="text-[11px] text-slate-500">Data katalog & stok buku</p>
+                        </div>
+                        {tableStatus.books === true ? (
+                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
+                            Aktif di Cloud
+                          </span>
+                        ) : tableStatus.books === false ? (
+                          <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
+                            Belum Dibuat
+                          </span>
                         ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" />
-                            Salin Skrip SQL
-                          </>
+                          <span className="text-xs text-slate-500">Menunggu Uji</span>
                         )}
-                      </button>
+                      </div>
+
+                      <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">Tabel members</p>
+                          <p className="text-[11px] text-slate-500">Data siswa, guru & username</p>
+                        </div>
+                        {tableStatus.members === true ? (
+                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
+                            Aktif di Cloud
+                          </span>
+                        ) : tableStatus.members === false ? (
+                          <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
+                            Belum Dibuat
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-500">Menunggu Uji</span>
+                        )}
+                      </div>
+
+                      <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">Tabel loans</p>
+                          <p className="text-[11px] text-slate-500">Transaksi & denda keterlambatan</p>
+                        </div>
+                        {tableStatus.loans === true ? (
+                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
+                            Aktif di Cloud
+                          </span>
+                        ) : tableStatus.loans === false ? (
+                          <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
+                            Belum Dibuat
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-500">Menunggu Uji</span>
+                        )}
+                      </div>
                     </div>
-                    <pre className="p-4 rounded-lg bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto leading-relaxed">
+                  </div>
+
+                  {/* Panduan 3 Langkah */}
+                  <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200 space-y-2">
+                    <p className="text-xs font-bold text-blue-900">
+                      Cara Membuat Tabel di Supabase (Hanya 1 Kali):
+                    </p>
+                    <ol className="text-xs text-blue-800 list-decimal list-inside space-y-1">
+                      <li>
+                        Klik tombol <strong>"Salin Skrip SQL Lengkap"</strong> di bawah.
+                      </li>
+                      <li>
+                        Buka{' '}
+                        <a
+                          href="https://supabase.com/dashboard/project/psgijbjlkmxivkngxljb/sql/new"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold underline text-blue-900 hover:text-blue-950"
+                        >
+                          Supabase SQL Editor Project Anda ↗
+                        </a>
+                        , tempel (Paste) skrip SQL tersebut, lalu klik <strong>Run</strong>.
+                      </li>
+                      <li>
+                        Kembali ke aplikasi ini lalu klik tombol <strong>"Tarik & Uji Status Tabel"</strong>. Data buku, anggota, dan transaksi akan langsung terhubung ke database cloud Supabase Anda!
+                      </li>
+                    </ol>
+                  </div>
+
+                  {/* SQL Schema Preview & Copy */}
+                  <div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Skema SQL Lengkap & Seeding Otomatis
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href="https://supabase.com/dashboard/project/psgijbjlkmxivkngxljb/sql/new"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-md transition-colors"
+                        >
+                          Buka Supabase SQL Editor ↗
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
+                            setCopiedSql(true);
+                            setTimeout(() => setCopiedSql(false), 2500);
+                            showToast('Skrip SQL berhasil disalin ke clipboard!');
+                          }}
+                          className="px-3 py-1.5 text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          {copiedSql ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-200" />
+                              Tersalin!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              Salin Skrip SQL Lengkap
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto leading-relaxed max-h-96">
                       {SUPABASE_SQL_SCHEMA}
                     </pre>
                   </div>
@@ -2202,247 +2309,6 @@ export default function App() {
               </div>
             )}
           </>
-        )}
-
-        {/* =========================================================
-            STUDENT / MEMBER ROLE VIEWPORT (PENCARIAN & RIWAYAT)
-           ========================================================= */}
-        {session.role === 'siswa' && (
-          <div className="space-y-8">
-            {/* Student Header Banner */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
-                <p className="text-xs font-medium text-blue-600 mb-1">
-                  Portal Anggota Perpustakaan Sekolah
-                </p>
-                <h1 className="text-2xl font-display font-bold text-slate-900">
-                  Halo, {activeStudent?.nama}
-                </h1>
-                <p className="text-xs text-slate-600 mt-1">
-                  Nomor Induk: <span className="font-mono font-semibold">{activeStudent?.nomor_induk}</span> · Kelas/Unit:{' '}
-                  <span className="font-semibold">{activeStudent?.kelas_unit}</span> · Status:{' '}
-                  <span>{activeStudent?.tipe}</span>
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-slate-200">
-                <div>
-                  <p className="text-xs text-slate-500">Sedang Dipinjam</p>
-                  <p className="text-xl font-bold font-mono tabular-nums text-slate-900">
-                    {studentLoans.filter((l) => l.status === 'Dipinjam').length} Buku
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Total Riwayat Pinjam</p>
-                  <p className="text-xl font-bold font-mono tabular-nums text-slate-900">
-                    {studentLoans.length} Transaksi
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Tanggungan Denda Berjalan</p>
-                  <p className="text-xl font-bold font-mono tabular-nums text-red-600">
-                    {formatRupiah(
-                      studentLoans
-                        .filter((l) => l.status === 'Dipinjam')
-                        .reduce((acc, l) => acc + l.calculatedFine, 0)
-                    )}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* STUDENT TAB 1: PENCARIAN KATALOG BUKU */}
-            {studentTab === 'katalog' && (
-              <div className="space-y-6">
-                <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-                  <div className="relative flex-1">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={bookSearch}
-                      onChange={(e) => setBookSearch(e.target.value)}
-                      placeholder="Cari judul buku pelajaran, novel, penulis, penerbit, atau ISBN..."
-                      className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5 overflow-x-auto">
-                    {categories.map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setBookCategoryFilter(cat)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                          bookCategoryFilter === cat
-                            ? 'bg-slate-900 text-white'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Book Catalog Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {filteredBooks.map((book) => {
-                    const isBorrowedByMe = studentLoans.some(
-                      (l) => l.buku_id === book.id && l.status === 'Dipinjam'
-                    );
-                    return (
-                      <div
-                        key={book.id}
-                        className="bg-white border border-slate-200 rounded-xl p-5 flex gap-4 justify-between"
-                      >
-                        <BookCover
-                          title={book.judul}
-                          author={book.penulis}
-                          category={book.kategori}
-                          coverUrl={book.cover_url}
-                          size="md"
-                        />
-                        <div className="flex-1 flex flex-col justify-between min-w-0">
-                          <div>
-                            <p className="text-xs text-slate-500">
-                              {book.kategori} · <span className="font-mono">{book.tahun_terbit}</span>
-                            </p>
-                            <h3 className="text-base font-display font-bold text-slate-900 mt-0.5 line-clamp-2">
-                              {book.judul}
-                            </h3>
-                            <p className="text-xs text-slate-700 font-medium mt-1">
-                              {book.penulis}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              {book.penerbit} · <span className="font-mono">{book.isbn}</span>
-                            </p>
-                          </div>
-
-                          <div className="pt-4 mt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                            <div className="text-xs font-mono tabular-nums">
-                              {book.stok_tersedia > 0 ? (
-                                <span className="text-emerald-700 font-semibold">
-                                  Tersedia: {book.stok_tersedia}/{book.stok_total}
-                                </span>
-                              ) : (
-                                <span className="text-red-600 font-semibold">Stok Habis (0)</span>
-                              )}
-                            </div>
-
-                            {isBorrowedByMe ? (
-                              <span className="text-xs font-semibold text-blue-600">
-                                Sedang Anda Pinjam
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleStudentBorrow(book)}
-                                disabled={book.stok_tersedia <= 0}
-                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer"
-                              >
-                                Pinjam Buku
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* STUDENT TAB 2: RIWAYAT PINJAM & DENDA SAYA */}
-            {studentTab === 'riwayat' && (
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-200">
-                  <h2 className="text-base font-display font-semibold text-slate-900">
-                    Riwayat Peminjaman & Perhitungan Denda Saya
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Daftar buku yang sedang atau pernah Anda pinjam beserta status pengembalian dan rincian denda keterlambatan (Rp1.000/hari).
-                  </p>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500">
-                        <th className="py-3.5 px-4">Judul Buku</th>
-                        <th className="py-3.5 px-4">Tanggal Pinjam</th>
-                        <th className="py-3.5 px-4">Batas Tenggat</th>
-                        <th className="py-3.5 px-4">Tanggal Kembali</th>
-                        <th className="py-3.5 px-4">Status</th>
-                        <th className="py-3.5 px-4 text-right">Rincian Denda</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 text-sm">
-                      {studentLoans.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-12 text-center text-slate-500">
-                            Anda belum memiliki riwayat peminjaman buku. Silakan pilih buku pada tab Pencarian Katalog Buku.
-                          </td>
-                        </tr>
-                      ) : (
-                        studentLoans.map((loan) => (
-                          <tr key={loan.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-3.5 px-4">
-                              <p className="font-semibold text-slate-900">{loan.bookTitle}</p>
-                              <p className="text-xs text-slate-500 font-mono">
-                                ID Pinjam: {loan.id} · ISBN {loan.bookIsbn}
-                              </p>
-                            </td>
-                            <td className="py-3.5 px-4 font-mono text-xs text-slate-600 tabular-nums">
-                              {formatDateId(loan.tanggal_pinjam)}
-                            </td>
-                            <td className="py-3.5 px-4 font-mono text-xs text-slate-900 font-medium tabular-nums">
-                              {formatDateId(loan.tanggal_tenggat)}
-                            </td>
-                            <td className="py-3.5 px-4 font-mono text-xs text-slate-600 tabular-nums">
-                              {formatDateId(loan.tanggal_kembali)}
-                            </td>
-                            <td className="py-3.5 px-4 text-xs">
-                              {loan.status === 'Dikembalikan' ? (
-                                <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
-                                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                                  Sudah Dikembalikan
-                                </span>
-                              ) : loan.isOverdue ? (
-                                <span className="text-red-600 font-semibold flex items-center gap-1.5">
-                                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                                  Terlambat {loan.lateDays} hari
-                                </span>
-                              ) : (
-                                <span className="text-amber-700 font-medium flex items-center gap-1.5">
-                                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                                  Sedang Dipinjam
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-mono tabular-nums">
-                              {loan.calculatedFine > 0 ? (
-                                <div>
-                                  <span className="font-semibold text-red-600 text-sm">
-                                    {formatRupiah(loan.calculatedFine)}
-                                  </span>
-                                  <p className="text-[11px] text-slate-500">
-                                    {loan.status === 'Dikembalikan'
-                                      ? 'Telah diselesaikan'
-                                      : `Terlambat ${loan.lateDays} hari × Rp1.000`}
-                                  </p>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-slate-400">Rp 0 (Tepat Waktu)</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
         )}
       </main>
 
@@ -3218,7 +3084,7 @@ export default function App() {
               {/* Signature Block for Official Printout */}
               <div className="pt-6 flex items-center justify-between text-xs text-slate-700">
                 <div>
-                  <p className="text-slate-500">Dicetak melalui Sistem Informasi Perpustakaan PustakaEdu</p>
+                  <p className="text-slate-500">Dicetak melalui Sistem Informasi Perpustakaan Pustaka Insan Madani 8</p>
                   <p className="text-slate-500 mt-0.5">{adminConfig.namaSekolah}</p>
                 </div>
                 <div className="text-center min-w-[220px]">
@@ -3413,7 +3279,7 @@ export default function App() {
       {/* Quiet Footer */}
       <footer className="bg-white border-t border-slate-200 px-6 py-4 mt-auto no-print">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
-          <span>PustakaEdu — Sistem Aplikasi Perpustakaan Sekolah Berbasis Web</span>
+          <span>Pustaka Insan Madani 8 — Sistem Aplikasi Perpustakaan Sekolah Berbasis Web</span>
           <span className="font-mono">Terintegrasi dengan Supabase ({SUPABASE_URL})</span>
         </div>
       </footer>

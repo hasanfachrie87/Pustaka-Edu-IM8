@@ -310,9 +310,13 @@ export const INITIAL_LOANS: LoanTransaction[] = [
   },
 ];
 
-export const SUPABASE_SQL_SCHEMA = `-- Jalankan SQL ini di Supabase SQL Editor (https://supabase.com/dashboard)
--- untuk membuat tabel buku, anggota, dan peminjaman di project Supabase Anda:
+export const SUPABASE_SQL_SCHEMA = `-- ============================================================================
+-- SKRIP SQL PERPUSTAKAAN SEKOLAH (PUSTAKAEDU) UNTUK SUPABASE
+-- Jalankan skrip ini di SQL Editor Supabase Anda:
+-- https://supabase.com/dashboard/project/psgijbjlkmxivkngxljb/sql/new
+-- ============================================================================
 
+-- 1. TABEL BUKU (books)
 CREATE TABLE IF NOT EXISTS public.books (
   id TEXT PRIMARY KEY,
   judul TEXT NOT NULL,
@@ -324,9 +328,15 @@ CREATE TABLE IF NOT EXISTS public.books (
   stok_total INTEGER NOT NULL DEFAULT 1,
   stok_tersedia INTEGER NOT NULL DEFAULT 1,
   cover_url TEXT DEFAULT '',
+  rating NUMERIC DEFAULT 4.8,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Kolom tambahan jika tabel sudah ada sebelumnya
+ALTER TABLE public.books ADD COLUMN IF NOT EXISTS rating NUMERIC DEFAULT 4.8;
+ALTER TABLE public.books ADD COLUMN IF NOT EXISTS cover_url TEXT DEFAULT '';
+
+-- 2. TABEL ANGGOTA (members) - Siswa & Guru
 CREATE TABLE IF NOT EXISTS public.members (
   id TEXT PRIMARY KEY,
   nomor_induk TEXT NOT NULL UNIQUE,
@@ -338,6 +348,10 @@ CREATE TABLE IF NOT EXISTS public.members (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Kolom tambahan jika tabel sudah ada sebelumnya
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS username TEXT DEFAULT '';
+
+-- 3. TABEL TRANSAKSI PEMINJAMAN (loans)
 CREATE TABLE IF NOT EXISTS public.loans (
   id TEXT PRIMARY KEY,
   buku_id TEXT NOT NULL REFERENCES public.books(id) ON DELETE CASCADE,
@@ -351,11 +365,73 @@ CREATE TABLE IF NOT EXISTS public.loans (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Mengaktifkan akses publik (Row Level Security Policy untuk anon key)
+-- 4. ROW LEVEL SECURITY (RLS) & POLICY AKSES PUBLIK (ANON KEY)
 ALTER TABLE public.books ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.loans ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow public access to books" ON public.books;
 CREATE POLICY "Allow public access to books" ON public.books FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public access to members" ON public.members;
 CREATE POLICY "Allow public access to members" ON public.members FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public access to loans" ON public.loans FOR ALL USING (true) WITH CHECK (true);`;
+
+DROP POLICY IF EXISTS "Allow public access to loans" ON public.loans;
+CREATE POLICY "Allow public access to loans" ON public.loans FOR ALL USING (true) WITH CHECK (true);
+
+-- 5. SEED DATA AWAL BUKU
+INSERT INTO public.books (id, judul, penulis, penerbit, tahun_terbit, kategori, isbn, stok_total, stok_tersedia, cover_url, rating)
+VALUES
+  ('bk-101', 'Bumi Manusia', 'Pramoedya Ananta Toer', 'Lentera Dipantara', 2005, 'Sastra & Fiksi', '978-979-97312-3-4', 8, 6, '/src/assets/images/cover_bumi_manusia_1793331549425.jpg', 4.9),
+  ('bk-102', 'Fisika Dasar Jilid 1 (Edisi 7)', 'David Halliday & Robert Resnick', 'Penerbit Erlangga', 2018, 'Sains & Matematika', '978-602-298-712-3', 12, 11, '/src/assets/images/cover_fisika_dasar_1793331551410.jpg', 4.8),
+  ('bk-103', 'Algoritma dan Pemrograman Modern', 'Rinaldi Munir', 'Informatika Bandung', 2021, 'Teknologi & Komputer', '978-623-7131-44-1', 10, 9, '/src/assets/images/cover_algoritma_pemrograman_1793331551544.jpg', 4.9),
+  ('bk-105', 'Laskar Pelangi', 'Andrea Hirata', 'Bentang Pustaka', 2008, 'Sastra & Fiksi', '978-979-3062-79-2', 9, 8, '/src/assets/images/cover_laskar_pelangi_1793331552838.jpg', 4.8),
+  ('bk-104', 'Sejarah Nasional Indonesia: Zaman Pergerakan', 'Sartono Kartodirdjo', 'Balai Pustaka', 2016, 'Sejarah & Sosial', '978-979-407-192-2', 6, 6, '', 4.7),
+  ('bk-106', 'Biologi Campbell Edisi 8 Jilid 1', 'Neil A. Campbell & Jane B. Reece', 'Penerbit Erlangga', 2019, 'Sains & Matematika', '978-979-075-688-5', 7, 7, '', 4.9),
+  ('bk-107', 'Kamus Besar Bahasa Indonesia Edisi Kelima', 'Badan Pengembangan dan Pembinaan Bahasa', 'Balai Pustaka', 2020, 'Referensi & Bahasa', '978-602-437-099-2', 5, 5, '', 4.6)
+ON CONFLICT (id) DO UPDATE SET
+  judul = EXCLUDED.judul,
+  penulis = EXCLUDED.penulis,
+  penerbit = EXCLUDED.penerbit,
+  tahun_terbit = EXCLUDED.tahun_terbit,
+  kategori = EXCLUDED.kategori,
+  isbn = EXCLUDED.isbn,
+  stok_total = EXCLUDED.stok_total,
+  stok_tersedia = EXCLUDED.stok_tersedia,
+  cover_url = EXCLUDED.cover_url,
+  rating = EXCLUDED.rating;
+
+-- 6. SEED DATA AWAL ANGGOTA (Siswa & Guru dengan Username)
+INSERT INTO public.members (id, nomor_induk, username, nama, tipe, kelas_unit, telepon)
+VALUES
+  ('mb-201', '20241001', 'nadia', 'Nadia Putri Maharani', 'Siswa', 'IX-A', '0812-3456-7890'),
+  ('mb-202', '20241002', 'rizky', 'Rizky Pratama Wijaya', 'Siswa', 'VIII-B', '0813-9876-5432'),
+  ('mb-203', '20241003', 'aulia', 'Aulia Rahman Hakim', 'Siswa', 'VII-C', '0857-2345-6789'),
+  ('mb-204', '19850412201001', 'hendra', 'Drs. Hendra Kusuma, M.Pd.', 'Guru', 'Guru IPA & Sains', '0811-2233-4455'),
+  ('mb-205', '19910823201502', 'siti', 'Siti Aminah, S.Kom.', 'Guru', 'Guru Informatika', '0821-8765-1122')
+ON CONFLICT (id) DO UPDATE SET
+  nomor_induk = EXCLUDED.nomor_induk,
+  username = EXCLUDED.username,
+  nama = EXCLUDED.nama,
+  tipe = EXCLUDED.tipe,
+  kelas_unit = EXCLUDED.kelas_unit,
+  telepon = EXCLUDED.telepon;
+
+-- 7. SEED DATA AWAL PEMINJAMAN
+INSERT INTO public.loans (id, buku_id, anggota_id, tanggal_pinjam, tanggal_tenggat, tanggal_kembali, status, denda_dibayar, catatan)
+VALUES
+  ('trx-301', 'bk-101', 'mb-201', CURRENT_DATE - INTERVAL '12 days', CURRENT_DATE - INTERVAL '5 days', NULL, 'Dipinjam', 0, 'Peminjaman tugas resensi sastra Indonesia'),
+  ('trx-302', 'bk-102', 'mb-202', CURRENT_DATE - INTERVAL '4 days', CURRENT_DATE + INTERVAL '3 days', NULL, 'Dipinjam', 0, 'Persiapan olimpiade sains'),
+  ('trx-303', 'bk-103', 'mb-203', CURRENT_DATE - INTERVAL '9 days', CURRENT_DATE - INTERVAL '2 days', NULL, 'Dipinjam', 0, 'Praktikum informatika'),
+  ('trx-304', 'bk-105', 'mb-201', CURRENT_DATE - INTERVAL '20 days', CURRENT_DATE - INTERVAL '13 days', CURRENT_DATE - INTERVAL '10 days', 'Dikembalikan', 3000, 'Sudah dikembalikan dan denda lunas'),
+  ('trx-305', 'bk-101', 'mb-204', CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE + INTERVAL '1 day', NULL, 'Dipinjam', 0, 'Referensi bahan ajar guru')
+ON CONFLICT (id) DO UPDATE SET
+  buku_id = EXCLUDED.buku_id,
+  anggota_id = EXCLUDED.anggota_id,
+  tanggal_pinjam = EXCLUDED.tanggal_pinjam,
+  tanggal_tenggat = EXCLUDED.tanggal_tenggat,
+  tanggal_kembali = EXCLUDED.tanggal_kembali,
+  status = EXCLUDED.status,
+  denda_dibayar = EXCLUDED.denda_dibayar,
+  catatan = EXCLUDED.catatan;
+`;
