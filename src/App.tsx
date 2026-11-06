@@ -31,6 +31,7 @@ import {
   Printer,
   Download,
   Settings,
+  CreditCard,
 } from 'lucide-react';
 import {
   supabase,
@@ -49,6 +50,7 @@ import {
 } from './lib/supabase';
 import { BookCover } from './components/BookCover';
 import { HomeDashboard } from './components/HomeDashboard';
+import { MemberCardA1Modal } from './components/MemberCardA1Modal';
 
 type UserRole = 'admin' | 'siswa' | null;
 type AdminTab = 'ringkasan' | 'buku' | 'anggota' | 'transaksi' | 'supabase';
@@ -236,6 +238,9 @@ export default function App() {
   const [reportMonth, setReportMonth] = useState<string>(
     () => new Date().toISOString().slice(0, 7) // YYYY-MM
   );
+
+  // Member Card A1 Print Modal State
+  const [memberCardToPrint, setMemberCardToPrint] = useState<Member | null>(null);
 
   // Toast Notification
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'warning' | 'error' } | null>(null);
@@ -1411,16 +1416,8 @@ export default function App() {
             </span>
           </div>
 
-          {/* Interactive Date Simulation & Admin Settings Controls */}
+          {/* Interactive Date Simulation Controls */}
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={openAdminSettingsModal}
-              className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
-            >
-              <Settings className="w-3.5 h-3.5 text-slate-600" />
-              Pengaturan Kepala Perpustakaan / Admin
-            </button>
 
             <div className="flex items-center gap-1.5 text-xs">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -1459,14 +1456,6 @@ export default function App() {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <button
-                      type="button"
-                      onClick={openAdminSettingsModal}
-                      className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer"
-                    >
-                      <Settings className="w-4 h-4 text-slate-700" />
-                      Pengaturan Admin
-                    </button>
                     <button
                       type="button"
                       onClick={() => setIsPrintModalOpen(true)}
@@ -1913,6 +1902,14 @@ export default function App() {
                                 </td>
                                 <td className="py-3.5 px-4 text-right">
                                   <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setMemberCardToPrint(member)}
+                                      className="p-1.5 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
+                                      title="Cetak Kartu Anggota Ukuran A1 (Print)"
+                                    >
+                                      <CreditCard className="w-4 h-4" />
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => openEditMemberModal(member)}
@@ -3275,6 +3272,16 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* MODAL CETAK KARTU ANGGOTA UKURAN A1 */}
+      <MemberCardA1Modal
+        isOpen={!!memberCardToPrint}
+        onClose={() => setMemberCardToPrint(null)}
+        member={memberCardToPrint}
+        schoolName={adminConfig.namaSekolah}
+        kepalaNama={adminConfig.kepalaNama}
+        kepalaNip={adminConfig.kepalaNip}
+      />
 
       {/* Quiet Footer */}
       <footer className="bg-white border-t border-slate-200 px-6 py-4 mt-auto no-print">

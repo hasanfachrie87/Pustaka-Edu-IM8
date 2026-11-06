@@ -16,13 +16,27 @@
 }
 
 @media print {
+  @page {
+    size: auto;
+    margin: 8mm;
+  }
+
+  @page a1-page {
+    size: A1 landscape;
+    margin: 12mm;
+  }
+
   body {
     background: #ffffff !important;
     color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
+
   .no-print {
     display: none !important;
   }
+
   .print-only-sheet {
     position: static !important;
     width: 100% !important;
@@ -32,6 +46,19 @@
     border: none !important;
     box-shadow: none !important;
     overflow: visible !important;
+  }
+
+  .print-a1-card {
+    page: a1-page;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: 4px solid #0f2557 !important;
+    border-radius: 20px !important;
+    overflow: visible !important;
+    page-break-inside: avoid !important;
   }
 }
 

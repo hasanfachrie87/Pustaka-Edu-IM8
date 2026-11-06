@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Book, Member, LoanTransaction, formatRupiah, formatDateId, FINE_PER_DAY } from '../lib/supabase';
 import { BookCover } from './BookCover';
+import { MemberCardA1Modal } from './MemberCardA1Modal';
 
 export type FrontNavTab = 'beranda' | 'katalog' | 'riwayat' | 'kartu';
 
@@ -76,6 +77,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
   const [selectedBookDetail, setSelectedBookDetail] = useState<Book | null>(null);
+  const [isA1CardModalOpen, setIsA1CardModalOpen] = useState(false);
 
   const currentMember = activeStudent || members[0];
 
@@ -837,16 +839,27 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-center">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsA1CardModalOpen(true)}
+                className="w-full sm:w-auto px-6 py-3 bg-[#0F2557] hover:bg-[#173578] text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md cursor-pointer transition-colors"
+              >
+                <Printer className="w-4 h-4 text-emerald-400" />
+                Cetak Kartu Anggota Ukuran A1 (Print)
+              </button>
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-5 py-2.5 bg-white hover:bg-slate-50 text-[#0F2557] border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-2xs cursor-pointer"
+                className="w-full sm:w-auto px-5 py-3 bg-white hover:bg-slate-50 text-[#0F2557] border border-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-2xs cursor-pointer transition-colors"
               >
                 <Printer className="w-4 h-4" />
-                Cetak Kartu Anggota Digital
+                Cetak Ukuran Standar
               </button>
             </div>
+            <p className="text-center text-[11px] text-slate-500">
+              Standar cetak poster/kartu besar: <strong>A1 (841 × 594 mm) Landscape</strong>
+            </p>
           </div>
         )}
       </main>
@@ -987,6 +1000,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </button>
         </div>
       </nav>
+
+      {/* MODAL CETAK KARTU ANGGOTA UKURAN A1 */}
+      <MemberCardA1Modal
+        isOpen={isA1CardModalOpen}
+        onClose={() => setIsA1CardModalOpen(false)}
+        member={currentMember}
+        schoolName={schoolName}
+      />
     </div>
   );
 };
